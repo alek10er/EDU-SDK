@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+</head>
+<body>
+    <button id="themeToggle">Go dark side or back</button>
+    <img class="logo" src="/static/images/image-Photoroom.png">
+    <h1 class="hearder">Register</h1>
+    <form class="blocktext" method="POST" action="{{ url_for('register') }}">
+        <label for="username">Username:</label>
+        <input type="text" name="username" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" name="password" id="password" required>
+        <button type="submit">Register</button>
+    </form>
+    <p class="blocktext">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+
+    <style>
+        body {
+    font-family: Arial, sans-serif;
+    transition: background-color 0.3s ease;
+    }
+
+    body.light-theme {
+        background-color: #ffffff;
+        color: #000000;
+    }
+
+    body.dark-theme {
+        background-color: #121212;
+        color: #ffffff;
+    }
+
+    .boxed-text {
+        border: 2px solid currentColor;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .blocktext {
+        margin-left: auto;
+        margin-right: auto;
+        width: 15em
+    }
+
+    .hearder {
+        margin-left: auto;
+        margin-right: auto;
+        width: 4em;
+        
+    }
+
+    .logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+
+    </style>
+
+    <script>
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const currentTheme = document.body.className;
+            if (currentTheme === 'light-theme') {
+                document.body.className = 'dark-theme';
+            } else {
+                document.body.className = 'light-theme';
+            }
+        });
+    </script>
+
+</body>
+</html>

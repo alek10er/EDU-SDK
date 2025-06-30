@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body bgcolor="#121212">
+    <button id="themeToggle">Перейти на темную сторону или обратно</button>
+    <h3>Ваши файлы</h3>
+    <ul>
+        {% for file in files %}
+        <tr>
+            <td>{{ file.filename }}</td>
+            <td>
+                <a href="{{ url_for('download_file', filename=file.filename) }}" class="btn btn-success">Скачать</a>
+            </td>
+            <td>
+                <form action="{{ url_for('delete_file', file_id=file.id) }}" method="POST" onsubmit="return confirm('Вы уверены, что хотите удалить этот файл?');">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </ul>
+
+    <!-- Форма для загрузки файлов -->
+    <h3>Загрузить новый файл</h3>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file">
+        <button type="submit" class="btn btn-primary">Загрузить</button>
+    </form>
+
+<!-- Прогресс-бар -->
+<div class="progress">
+    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+</div>
+    
+    <a href="{{ url_for('logout') }}">Выйти</a>
+
+    <style>
+        .progress {
+        width: 100%;
+        background-color: #f3f3f3;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+
+    .progress-bar {
+        width: 0;
+        height: 25px;
+        background-color: #4caf50;
+        text-align: center;
+        line-height: 25px;
+        color: white;
+        border-radius: 5px;
+    }
+    </style>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            var formData = new FormData();
+            var fileInput = document.getElementById('fileInput');
+            formData.append('file', fileInput.files[0]);
+
+            var xhr = new XMLHttpRequest();
+            // Исправляем URL для отправки на маршрут 'dashboard', а не 'upload_file'
+            xhr.open('POST', '{{ url_for("dashboard") }}', true);
+
+            // Отображение прогресса
+            xhr.upload.addEventListener('progress', function(event) {
+                if (event.lengthComputable) {
+                    var percentComplete = (event.loaded / event.total) * 100;
+                    var progressBar = document.getElementById('progressBar');
+                    progressBar.style.width = percentComplete + '%';
+                    progressBar.innerHTML = Math.round(percentComplete) + '%';
+                }
+            });
+
+            // Действие после завершения загрузки
+            xhr.onload = function() {
+                if (xhr.status == 200) {
+                    alert('Файл успешно загружен');
+                    window.location.reload();
+                } else {
+                    alert('Ошибка при загрузке файла');
+                }
+            };
+
+            xhr.send(formData);
+        });
+    </script>
+    <script>
+                    // Функция для установки темы
+    function setTheme(theme) {
+        document.body.className = theme;
+        localStorage.setItem('theme', theme); // Сохраняем тему в localStorage
+    }
+
+    // Обработчик события для переключения темы
+    document.getElementById('themeToggle').addEventListener('click', function() {
+        const currentTheme = document.body.className;
+        if (currentTheme === 'light-theme') {
+            setTheme('dark-theme');
+        } else {
+            setTheme('light-theme');
+        }
+    });
+
+    // При загрузке страницы проверяем сохранённую тему
+    window.addEventListener('load', function() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme); // Устанавливаем сохранённую тему
+        } else {
+            setTheme('light-theme'); // Устанавливаем светлую тему по умолчанию
+        }
+    });
+    </script>
+</body>
+</html>

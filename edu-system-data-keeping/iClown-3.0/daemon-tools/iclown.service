@@ -1,0 +1,13 @@
+[Unit]
+Description=iClown
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/root/run.sh
+User=root
+WorkingDirectory=/root/iClown2.0
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
