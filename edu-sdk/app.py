@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['UPLOAD_FOLDER'] = 'uploads/'
-app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024 * 1024  # limut is 200GB
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024 * 1024  # limut is 200GB (надо переделать лимит на 2 ГБ под файл)
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
