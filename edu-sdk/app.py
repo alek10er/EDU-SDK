@@ -47,6 +47,9 @@ def load_user(user_id):
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -60,9 +63,17 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        
+        if User.query.filter_by(username=username).first():
+            flash('Это имя пользователя уже занято')
+            return redirect(url_for('register'))
+        
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(username=username, password=hashed_password)
         db.session.add(new_user)
@@ -77,37 +88,69 @@ def dashboard():
     selected_folder = request.args.get('folder', '')
 
     if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('Файл не выбран')
+            return redirect(request.url)
+        
         file = request.files['file']
-        folder_name = request.form.get('folder', '')
+        if file.filename == '':
+            flash('Файл не выбран')
+            return redirect(request.url)
+        
         if file:
-            folder_path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), folder_name)
-            os.makedirs(folder_path, exist_ok=True)
-
-            filepath = os.path.join(folder_path, file.filename)
+            folder_name = request.form.get('folder', '')
+            user_upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+            
+            # Создаем основную папку пользователя, если её нет
+            os.makedirs(user_upload_dir, exist_ok=True)
+            
+            if folder_name:
+                folder_path = os.path.join(user_upload_dir, folder_name)
+                os.makedirs(folder_path, exist_ok=True)
+            
+            filepath = os.path.join(user_upload_dir, folder_name, file.filename)
+            
+            # Проверяем, не существует ли уже файл с таким именем
+            if os.path.exists(filepath):
+                flash('Файл с таким именем уже существует')
+                return redirect(request.url)
+            
             file.save(filepath)
 
-            new_file = File(filename=file.filename, folder=folder_name, user_id=current_user.id)
+            new_file = File(filename=file.filename, folder=folder_name if folder_name else None, user_id=current_user.id)
             db.session.add(new_file)
             db.session.commit()
             flash('Файл успешно загружен.')
 
     user_folders = Folder.query.filter_by(user_id=current_user.id).all()
-    user_files = File.query.filter_by(user_id=current_user.id, folder=selected_folder).all()
+    user_files = File.query.filter_by(user_id=current_user.id, folder=selected_folder if selected_folder else None).all()
 
-    return render_template('dashboard.html', files=user_files, folders=user_folders, selected_folder=selected_folder)
+    return render_template('dashboard.html', 
+                         files=user_files, 
+                         folders=user_folders, 
+                         selected_folder=selected_folder)
 
 @app.route('/create_folder', methods=['POST'])
 @login_required
 def create_folder():
-    folder_name = request.form['folder_name']
-    if folder_name:
-        folder_path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), folder_name)
-        os.makedirs(folder_path, exist_ok=True)
+    folder_name = request.form.get('folder_name', '').strip()
+    if not folder_name:
+        flash('Имя папки не может быть пустым')
+        return redirect(url_for('dashboard'))
+    
+    # Проверяем, нет ли уже папки с таким именем
+    existing_folder = Folder.query.filter_by(name=folder_name, user_id=current_user.id).first()
+    if existing_folder:
+        flash('Папка с таким именем уже существует')
+        return redirect(url_for('dashboard'))
+    
+    folder_path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), folder_name)
+    os.makedirs(folder_path, exist_ok=True)
 
-        new_folder = Folder(name=folder_name, user_id=current_user.id)
-        db.session.add(new_folder)
-        db.session.commit()
-        flash('Папка создана.')
+    new_folder = Folder(name=folder_name, user_id=current_user.id)
+    db.session.add(new_folder)
+    db.session.commit()
+    flash('Папка создана.')
 
     return redirect(url_for('dashboard'))
 
@@ -138,7 +181,9 @@ def delete_file(file_id):
         flash('У вас нет прав на удаление этого файла')
         return redirect(url_for('dashboard'))
 
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), file_to_delete.folder, file_to_delete.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), 
+                          file_to_delete.folder if file_to_delete.folder else '', 
+                          file_to_delete.filename)
     if os.path.exists(file_path):
         os.remove(file_path)
 
@@ -148,11 +193,28 @@ def delete_file(file_id):
     flash('Файл успешно удалён')
     return redirect(url_for('dashboard'))
 
-@app.route('/download/<folder>/<filename>')
+@app.route('/download/<path:folder>/<filename>')
 @login_required
 def download_file(folder, filename):
+    if folder == 'None':
+        folder = ''
+    
     user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id), folder)
-    return send_from_directory(user_folder, filename)
+    
+    # Проверяем, существует ли файл
+    if not os.path.exists(os.path.join(user_folder, filename)):
+        flash('Файл не найден')
+        return redirect(url_for('dashboard'))
+    
+    # Проверяем, принадлежит ли файл текущему пользователю
+    file_record = File.query.filter_by(filename=filename, 
+                                     folder=folder if folder else None, 
+                                     user_id=current_user.id).first()
+    if not file_record:
+        flash('У вас нет прав доступа к этому файлу')
+        return redirect(url_for('dashboard'))
+    
+    return send_from_directory(user_folder, filename, as_attachment=True)
 
 @app.route('/logout')
 @login_required
